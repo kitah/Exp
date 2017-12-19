@@ -12,8 +12,8 @@
 #define NY      240
 #define NZ      3
 #define HANTEI  0.001
-#define CENTER_X 179//159
-#define CENTER_Y 139//119
+#define CENTER_X 159
+#define CENTER_Y 119
 #define NDM     0
 
 #define h(x,y) hh[(x)+(L-1)/2][(y)+(L-1)/2]
@@ -24,6 +24,7 @@ int main(void)
   //IMAGE in_img;
   char flnm[256];
   int nr, nw, zn,i, j, n, m, count;
+  double **p;
   double d, sgmc;
   double tmp_e1, tmp_e2, tmp_e3;
   double tmp_a00_01, tmp_a00_12, tmp_a00_02, tmp_a01_01, tmp_a01_12, tmp_a01_02, tmp_a11_01, tmp_a11_12, tmp_a11_02;
@@ -34,8 +35,9 @@ int main(void)
   double ***fn;
   double **p0, **p1, **p2;
   double data[NX * NY];
-  double e[NZ], mz[NZ], d0k0[2];
+  double e[NZ];
   double k0, d0, deltad, deltak, dprev, kprev;
+  double mz[NZ], d0k0[2];
   
   void psf(double k, int z, double d, double sgmc, int psf_hs, double **p);
   void dpsfdd(double k, int z, double d, double sgmc, int psf_hs, double **p);
@@ -49,13 +51,14 @@ int main(void)
   
   d = 1.0;
   sgmc = SGMC;
-
+  
   //-----------------------------------------------------------------------------
   // malloc
+  p    = malloc_double_2d(2 * PSF_HS + 1, PSF_HS,  2 * PSF_HS + 1, PSF_HS);
   p0   = malloc_double_2d(2 * PSF_HS + 1, PSF_HS,  2 * PSF_HS + 1, PSF_HS);
   p1   = malloc_double_2d(2 * PSF_HS + 1, PSF_HS,  2 * PSF_HS + 1, PSF_HS);
   p2   = malloc_double_2d(2 * PSF_HS + 1, PSF_HS,  2 * PSF_HS + 1, PSF_HS);  
-
+  
   f0p1 = malloc_double_2d(BS, 0, BS, 0);
   f1p0 = malloc_double_2d(BS, 0, BS, 0);
   f1p2 = malloc_double_2d(BS, 0, BS, 0);
@@ -78,7 +81,9 @@ int main(void)
   f2pk0 = malloc_double_2d(BS, 0, BS, 0); 
   
   fn = malloc_double_3d(NZ, 0, 2 * PSF_HS + NX, PSF_HS, 2 * PSF_HS + NY, PSF_HS);
-
+ 
+  
+  
   //-----------------------------------------------------------------------------
   // image input
   for(zn = 0 ; zn < NZ ; zn++){
@@ -113,29 +118,27 @@ int main(void)
     sprintf(flnm, "d0515_%d.ppm", zn);
     wIMAGE(in_img, flnm);*/
   }
+    
 
   //渡された画像に折り返し処理を施す
   
   //-----------------------------------------------------------------------------
   // GN法の初期値 SFF法で求める
-  //k0 = 0.6, d0 = 1.2;  
 
+  //k0 = 0.6, d0 = 1.2;
+  
   filter(fn, CENTER_X, CENTER_Y, mz);
   calculate_d_k(mz, d0k0);
-
-  printf("\nest_d  est_k for SFF: \n");
-  printf("[%f %f]\n\n", d0k0[0], d0k0[1]);
+  printf("d0 = %f, k0 = %f\n", d0k0[0], d0k0[1]);
   
-  d0 = d0k0[0];
-  k0 = d0k0[1];
+  d0 = d0k0[0], k0 = d0k0[1];
   count = 0;
-  
   // do-whileのループで対象のブロックのdepth"d"とレンズ定数"k"を推定する
   do{
     psf(k0, 0, d0, sgmc, PSF_HS, p0);
     psf(k0, 1, d0, sgmc, PSF_HS, p1);
     psf(k0, 2, d0, sgmc, PSF_HS, p2);
-    
+      
     make_fnpn(BS, CENTER_X, CENTER_Y, fn[0], p1, f0p1);
     make_fnpn(BS, CENTER_X, CENTER_Y, fn[1], p0, f1p0);
     make_fnpn(BS, CENTER_X, CENTER_Y, fn[1], p2, f1p2);
@@ -157,37 +160,40 @@ int main(void)
     make_fnpkn(BS, CENTER_X, CENTER_Y, fn[0], f0pk2, k0, 2, d0, SGMC);
     make_fnpkn(BS, CENTER_X, CENTER_Y, fn[2], f2pk0, k0, 0, d0, SGMC);
     
+    for(zn = 0 ; zn > NZ ; zn++){
+      e[zn] = 0.0;
+    }
+    
     tmp_e1 = tmp_e2 = tmp_e3 = tmp_a00_01 = tmp_a00_12 = tmp_a00_02 = 0.0;
     tmp_a01_01 = tmp_a01_12 = tmp_a01_02 = 0.0, tmp_a11_01 = tmp_a11_12 = tmp_a11_02 = 0.0;
     a00 = a01 = a10 = a11 = b0 = b1 = 0.0;
-    e[0] = e[1] = e[2] = 0.0;
     for(j = 0 ; j < BS ; j++) {
       for(i = 0 ; i < BS ; i++) {
 	tmp_e1 = (f0p1[i][j] - f1p0[i][j]);
 	tmp_e2 = (f1p2[i][j] - f2p1[i][j]);
 	tmp_e3 = (f0p2[i][j] - f2p0[i][j]);
-
-	e[0] += tmp_e1 * tmp_e1;
-	e[1] += tmp_e2 * tmp_e2;
-	e[2] += tmp_e3 * tmp_e3;
 	
 	tmp_a00_01 += (f0pd1[i][j] - f1pd0[i][j]) * (f0pd1[i][j] - f1pd0[i][j]);
 	tmp_a00_12 += (f1pd2[i][j] - f2pd1[i][j]) * (f1pd2[i][j] - f2pd1[i][j]);  
 	tmp_a00_02 += (f0pd2[i][j] - f2pd0[i][j]) * (f0pd2[i][j] - f2pd0[i][j]);
-
-	tmp_a01_01 += (f0pd1[i][j] - f1pd0[i][j]) * (f0pk1[i][j] - f1pk0[i][j]);
-	tmp_a01_12 += (f1pd2[i][j] - f2pd1[i][j]) * (f1pk2[i][j] - f2pk1[i][j]);  
-	tmp_a01_02 += (f0pd2[i][j] - f2pd0[i][j]) * (f0pk2[i][j] - f2pk0[i][j]);
 	
 	tmp_a11_01 += (f0pk1[i][j] - f1pk0[i][j]) * (f0pk1[i][j] - f1pk0[i][j]);
 	tmp_a11_12 += (f1pk2[i][j] - f2pk1[i][j]) * (f1pk2[i][j] - f2pk1[i][j]);  
 	tmp_a11_02 += (f0pk2[i][j] - f2pk0[i][j]) * (f0pk2[i][j] - f2pk0[i][j]);
-	
+
+	tmp_a01_01 += (f0pd1[i][j] - f1pd0[i][j]) * (f0pk1[i][j] - f1pk0[i][j]);
+	tmp_a01_12 += (f1pd2[i][j] - f2pd1[i][j]) * (f1pk2[i][j] - f2pk1[i][j]);  
+	tmp_a01_02 += (f0pd2[i][j] - f2pd0[i][j]) * (f0pk2[i][j] - f2pk0[i][j]);
+
 	b0 += tmp_e1 * (f0pd1[i][j] - f1pd0[i][j]) + tmp_e2 * (f1pd2[i][j] - f2pd1[i][j]) + tmp_e3 * (f0pd2[i][j] - f2pd0[i][j]);
 	b1 += tmp_e1 * (f0pk1[i][j] - f1pk0[i][j]) + tmp_e2 * (f1pk2[i][j] - f2pk1[i][j]) + tmp_e3 * (f0pk2[i][j] - f2pk0[i][j]);
       }
     }
     
+    e[0] = tmp_e1 * tmp_e1;
+    e[1] = tmp_e2;
+     e[2] = tmp_e3;
+
     printf("E[%d] = %f\n", count, e[0] + e[1] + e[2]);
 
     a00 = tmp_a00_01 + tmp_a00_12 + tmp_a00_02;
@@ -214,9 +220,11 @@ int main(void)
     printf("k0: %f\n", k0);
 
     count++;
-  } while(fabs(deltad) > 1.0E-2);
+    //} while(fabs(e[0]+e[1]+e[2]) > 1.0E-5);   
+    //} while(fabs(deltak) > 1.0E-5);
     printf("\n");
-    //  } while( fabs( (dprev - d) - (d0 - d) ) / fabs(dprev - d) > 0.1);
+    } while( fabs( (dprev - d) - (d0 - d) ) / fabs(dprev - d) > 0.1);
+    //}while(fabs(deltad) > 1.0E-8);
   
   printf("--------------------------------------------\n");
   printf("loop = %d\n", count);
@@ -225,7 +233,9 @@ int main(void)
   printf("deltad = %f, deltak = %f\n", deltad, deltak);
   printf("gosa = %f\n", d0 - d);
 
-  //free_double_2d(p, 2 * PSF_HS + 1, PSF_HS,  2 * PSF_HS + 1, PSF_HS);
+  
+  free_double_2d(p, 2 * PSF_HS + 1, PSF_HS,  2 * PSF_HS + 1, PSF_HS);
+  
   return 0;
 }
   
@@ -377,195 +387,242 @@ void num_diff_method(int bs, double ** fnpndelta, double **fnpn, double **f){
   }
 }
 
+
 /*---------------------------------------------------------------------*/
- void filter(double ***fn, int center_x, int center_y, double *mz){
-   //LPF
-   double hh[9][9] =
-     {
-       {
-	 -0.001014896851, 
-	 0.000655810401, 
-	 -0.003138266557, 
-	 -0.014109352684, 
-	 -0.018787171444, 
-	 -0.014109352684, 
-	 -0.003138266557, 
-	 0.000655810401, 
-	 -0.001014896851
-       }, 
-       {
-	 0.000655810401, 
-	 -0.009738774136, 
-	 -0.031145719861, 
-	 -0.034508428742, 
-	 -0.027133646128, 
-	 -0.034508428742, 
-	 -0.031145719861, 
-	 -0.009738774136, 
-	 0.000655810401
-       }, 
-       {
-	 -0.003138266557, 
-	 -0.031145719861, 
-	 -0.030032998719, 
-	 0.006440072228, 
-	 0.017091672591, 
-	 0.006440072228, 
-	 -0.030032998719, 
-	 -0.031145719861, 
-	 -0.003138266557
-       }, 
-       {
-	 -0.014109352684, 
-	 -0.034508428742, 
-	 0.006440072228, 
-	 0.078528220659, 
-	 0.103452025961, 
-	 0.078528220659, 
-	 0.006440072228, 
-	 -0.034508428742, 
-	 -0.014109352684
-       }, 
-       {
-	 -0.018787171444, 
-	 -0.027133646128, 
-	 0.017091672591, 
-	 0.103452025961, 
-	 0.156989353988, 
-	 0.103452025961, 
-	 0.017091672591, 
-	 -0.027133646128, 
-	 -0.018787171444
-       }, 
-       {
-	 -0.014109352684, 
-	 -0.034508428742, 
-	 0.006440072228, 
-	 0.078528220659, 
-	 0.103452025961, 
-	 0.078528220659, 
-	 0.006440072228, 
-	 -0.034508428742, 
-	 -0.014109352684
-       }, 
-       {
-	 -0.003138266557, 
-	 -0.031145719861, 
-	 -0.030032998719, 
-	 0.006440072228, 
-	 0.017091672591, 
-	 0.006440072228, 
-	 -0.030032998719, 
-	 -0.031145719861, 
-	 -0.003138266557
-       }, 
-       {
-	 0.000655810401, 
-	 -0.009738774136, 
-	 -0.031145719861, 
-	 -0.034508428742, 
-	 -0.027133646128, 
-	 -0.034508428742, 
-	 -0.031145719861, 
-	 -0.009738774136, 
-	 0.000655810401
-       }, 
-       {
-	 -0.001014896851, 
-	 0.000655810401, 
-	 -0.003138266557, 
-	 -0.014109352684, 
-	 -0.018787171444, 
-	 -0.014109352684, 
-	 -0.003138266557, 
-	 0.000655810401, 
-	 -0.001014896851
-       } 
-     };
-      
-   int L = 9, L1 = (L-1)/2;
-   int zn, i, j, ii, jj, xsize, ysize, hbs;
-   double **g, f_tmp, **gz, ***in_img;
-   
-   xsize = BS;
-   ysize = BS;
-   hbs = (BS - 1) / 2;
-   
-   //malloc
-   in_img = malloc_double_3d(NZ, 0, xsize, 0, ysize, 0);
-   g = malloc_double_2d(L1*2 + xsize, L1, L1*2 + ysize, L1);
-   gz = malloc_double_2d(xsize, 0, ysize, 0);
-   
-   //init
-   for(zn = 0 ; zn < NZ ; zn++){
-     mz[zn] = 0.0;
+ void filter(double ***fn, int center_x, int center_y, double *mz)
+{
+  //LPF
+double hh[9][9] =
+  {
+    {
+       -0.001014896851, 
+        0.000655810401, 
+       -0.003138266557, 
+       -0.014109352684, 
+       -0.018787171444, 
+       -0.014109352684, 
+       -0.003138266557, 
+        0.000655810401, 
+       -0.001014896851
+    }, 
+    {
+        0.000655810401, 
+       -0.009738774136, 
+       -0.031145719861, 
+       -0.034508428742, 
+       -0.027133646128, 
+       -0.034508428742, 
+       -0.031145719861, 
+       -0.009738774136, 
+        0.000655810401
+    }, 
+    {
+       -0.003138266557, 
+       -0.031145719861, 
+       -0.030032998719, 
+        0.006440072228, 
+        0.017091672591, 
+        0.006440072228, 
+       -0.030032998719, 
+       -0.031145719861, 
+       -0.003138266557
+    }, 
+    {
+       -0.014109352684, 
+       -0.034508428742, 
+        0.006440072228, 
+        0.078528220659, 
+        0.103452025961, 
+        0.078528220659, 
+        0.006440072228, 
+       -0.034508428742, 
+       -0.014109352684
+    }, 
+    {
+       -0.018787171444, 
+       -0.027133646128, 
+        0.017091672591, 
+        0.103452025961, 
+        0.156989353988, 
+        0.103452025961, 
+        0.017091672591, 
+       -0.027133646128, 
+       -0.018787171444
+    }, 
+    {
+       -0.014109352684, 
+       -0.034508428742, 
+        0.006440072228, 
+        0.078528220659, 
+        0.103452025961, 
+        0.078528220659, 
+        0.006440072228, 
+       -0.034508428742, 
+       -0.014109352684
+    }, 
+    {
+       -0.003138266557, 
+       -0.031145719861, 
+       -0.030032998719, 
+        0.006440072228, 
+        0.017091672591, 
+        0.006440072228, 
+       -0.030032998719, 
+       -0.031145719861, 
+       -0.003138266557
+    }, 
+    {
+        0.000655810401, 
+       -0.009738774136, 
+       -0.031145719861, 
+       -0.034508428742, 
+       -0.027133646128, 
+       -0.034508428742, 
+       -0.031145719861, 
+       -0.009738774136, 
+        0.000655810401
+    }, 
+    {
+       -0.001014896851, 
+        0.000655810401, 
+       -0.003138266557, 
+       -0.014109352684, 
+       -0.018787171444, 
+       -0.014109352684, 
+       -0.003138266557, 
+        0.000655810401, 
+       -0.001014896851
+    } 
+  };
+  
+
+ int L = 9, L1 = (L-1)/2;
+ double **g, f_tmp, **gz;
+ int i, j, ii, jj, xsize, ysize, hbs;
+ double ***in_img;
+ int zn;
+ 
+ xsize = BS;
+ ysize = BS;
+ hbs = (BS - 1) / 2;
+ 
+
+ //malloc
+
+ in_img = malloc_double_3d(NZ, 0, xsize, 0, ysize, 0);
+ 
+ if((g = (double **)malloc(sizeof(double *) * (L1 + xsize + L1))) == NULL){
+   fprintf(stderr, "\nError : malloc\n\n"); exit(1);
+ }
+ g += L1;
+ for(i = -L1 ; i <= xsize + L1 ; i++){
+   if((g[i] = (double *)malloc(sizeof(double) * (L1 + ysize + L1))) == NULL){
+     fprintf(stderr, "\nError : malloc\n\n"); exit(1);
    }
-
-   //1ブロック分の画像生成
-   for(zn = 0 ; zn < NZ ; zn++){
-     for(j = 0 ; j < ysize ; j++){
-       for(i = 0 ; i < xsize ; i++){
-	 in_img[zn][i][j] = fn[zn][center_x - hbs + i][center_y - hbs + j];
-       }
-     }   
-
-     //折り返し
-     //copy
-     for(j = 0 ; j < ysize ; j++){
-       for(i = 0 ; i < xsize ; i++){
-	 g[i][j] = in_img[zn][i][j];
-       }
-     }
-     
-     for(j = 0 ; j < ysize ; j++){
-       for(i = 1 ; i <= L1 ; i++){
-	 g[-i][j] = g[i][j];
-	 g[xsize - 1 + i][j] = g[xsize - 1 - i][j];
-       }
-     }
-     
-     for(i = -L1 ; i < xsize + L1 ; i++){
-       for(j = 1 ; j <= L1 ; j++){
-	 g[i][-j] = g[i][j];
-	 g[i][ysize - 1 + j] = g[i][ysize - 1 - j];
-       }
-     }
-     
-     //二次元のフィルタリング処理
-     for(j = 0 ; j < ysize ; j++){
-       for(i = 0 ; i < xsize ; i++){
-	 f_tmp = 0.0;
-	 for(jj = -L1 ; jj <= L1 ; jj++){
-	   for(ii = -L1 ; ii <= L1 ; ii++){
-	     f_tmp += g[i - ii][j - jj] * h(ii, jj);
-	   }
-	 }
-	 gz[i][j] = f_tmp;
-	 if(round(f_tmp) >= 256){
-	   gz[i][j] = 255;
-	 }else if(f_tmp < 0){
-	   gz[i][j] = 0;
-	 } 
-       }
-     }
-     
-     //合焦評価値
-     for(j = 0 ; j < ysize ; j++){
-       for(i = 0 ; i < xsize ; i++){	 
-	 mz[zn] += (gz[i][j]) * (gz[i][j]);
-       }
-     }
-     mz[zn] = log(mz[zn]);
-   }//zn
+   g[i] += L1;
+ }
+ 
+ if((gz = (double **)malloc(sizeof(double *) * xsize)) == NULL){
+   fprintf(stderr, "\nError : malloc\n\n"); exit(1);
+ }
+ 
+ for(i = 0 ; i < xsize ; i++){
+   if((gz[i] = (double *)malloc(sizeof(double) * ysize)) == NULL){
+     fprintf(stderr, "\nError : malloc\n\n"); exit(1);
+   }
  }
 
+ //init
+ 
+ for(zn = 0 ; zn < NZ ; zn++){
+   mz[zn] = 0.0;
+ }
+
+  //1ブロック分の画像生成
+
+ for(zn = 0 ; zn < NZ ; zn++){
+   for(j = 0 ; j < ysize ; j++){
+     for(i = 0 ; i < xsize ; i++){
+       in_img[zn][i][j] = fn[zn][center_x - hbs + i][center_y - hbs + j];
+     }
+   }   
+   //折り返し
+
+   //copy
+   for(j = 0 ; j < ysize ; j++){
+     for(i = 0 ; i < xsize ; i++){
+       g[i][j] = in_img[zn][i][j];
+     }
+   }
+   
+   for(j = 0 ; j < ysize ; j++){
+     for(i = 1 ; i <= L1 ; i++){
+       g[-i][j] = g[i][j];
+       g[xsize - 1 + i][j] = g[xsize - 1 - i][j];
+     }
+   }
+   
+   for(i = -L1 ; i < xsize + L1 ; i++){
+     for(j = 1 ; j <= L1 ; j++){
+       g[i][-j] = g[i][j];
+       g[i][ysize - 1 + j] = g[i][ysize - 1 - j];
+     }
+   }
+     
+   //二次元のフィルタリング処理
+   
+   for(j = 0 ; j < ysize ; j++){
+     for(i = 0 ; i < xsize ; i++){
+       f_tmp = 0.0;
+       for(jj = -L1 ; jj <= L1 ; jj++){
+	 for(ii = -L1 ; ii <= L1 ; ii++){
+	   f_tmp += g[i - ii][j - jj] * h(ii, jj);
+	 }
+       }
+       gz[i][j] = f_tmp;
+       /*	 
+       D(out, i, j) = round(f_tmp);
+       gz[i][j] = round(f_tmp);
+       
+       if(round(f_tmp) >= 256){
+	 gz[i][j] = 255;
+       }
+       
+       else if(f_tmp < 0){
+	 gz[i][j] = 0;
+       } 
+       gz[i][j] = D(out, i, j);
+       printf("%f ", gz[i][j]);
+       */
+     }
+   }
+
+   //合焦評価値
+   
+   
+   for(j = 0 ; j < ysize ; j++){
+     for(i = 0 ; i < xsize ; i++){	 
+       mz[zn] += (gz[i][j]) * (gz[i][j]);
+     }
+   }
+   mz[zn] = log(mz[zn]);
+   //printf("mz[%d] = %f\n", zn, mz[zn]);   
+ }//zn
+ 
+}
+
+
 /*---------------------------------------------------------------------*/
+
 //p, q = bs. do this in each block
 
-void calculate_d_k(double *mz, double *d0k0){
+void calculate_d_k(double *mz, double *d0k0)
+{
+
   int x1, x2, x3, max_n = 0, n;
-  double max = 0, y1, y2, y3, a, b;//c
+  double max = 0, y1, y2, y3, a, b, c;
   double a1, a2, a3, b1, b2, b3, c1, c2, c3, d1, d2, d3;
+  
   
   for(n = 0 ; n < NZ ; n++){
     if(mz[n] > max) {
@@ -578,11 +635,13 @@ void calculate_d_k(double *mz, double *d0k0){
     x1 = max_n;
     x2 = max_n + 1;
     x3 = max_n + 2;
-  }else if(max_n == NZ){
+  }
+  else if(max_n == NZ){
     x1 = max_n - 2;
     x2 = max_n - 1;
     x3 = max_n;
-  }else{
+  }
+  else{
     x1 = max_n - 1;
     x2 = max_n;
     x3 = max_n + 1;
@@ -609,10 +668,11 @@ void calculate_d_k(double *mz, double *d0k0){
   
   a = (d1 * (b2*c3 - c2*b3) - b1 * (d2*c3 - c2*d3) + c1 * (d2*b3 - b2*d3)) / (a1 * (b2*c3 - c2*b3) - b1 * (a2*c3 - c2*a3) + c1 * (a2*b3 - b2*a3));
   b = (a1 * (d2*c3 - c2*d3) - d1 * (a2*c3 - c2*a3) + c1 * (a2*d3 - d2*a3)) / (a1 * (b2*c3 - c2*b3) - b1 * (a2*c3 - c2*a3) + c1 * (a2*b3 - b2*a3));
-  //c = (a1 * (b2*d3 - d2*b3) - b1 * (a2*d3 - d2*a3) + d1 * (a2*b3 - b2*a3)) / (a1 * (b2*c3 - c2*b3) - b1 * (a2*c3 - c2*a3) + c1 * (a2*b3 - b2*a3));
+  c = (a1 * (b2*d3 - d2*b3) - b1 * (a2*d3 - d2*a3) + d1 * (a2*b3 - b2*a3)) / (a1 * (b2*c3 - c2*b3) - b1 * (a2*c3 - c2*a3) + c1 * (a2*b3 - b2*a3));
 
   d0k0[0] = (-1.0 * b) / (2.0 * a); //d0
   d0k0[1] = 2.0 * sqrt(fabs(a)) / M_PI;     //k0
+
 }
 
 
