@@ -12,8 +12,8 @@
 #define NY      240
 #define NZ      3
 #define HANTEI  0.001
-#define CENTER_X 179//159
-#define CENTER_Y 139//119
+#define CENTER_X 159
+#define CENTER_Y 119
 #define NDM     0
 
 #define h(x,y) hh[(x)+(L-1)/2][(y)+(L-1)/2]
