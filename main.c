@@ -1,15 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <imageio.h>
 #include <math.h>
 #include <sys/stat.h>
 #include <time.h>
-#include "lpf.h"
-#include "bpf.h"
-#include "func.h"
+//#include "lpf.h"
+//#include "bpf.h"
+//#include "func.h"
 
-int main(void){
-  FILE *fp;
+/**** Default値の設定 ****/
+#define BLOCK_SIZE 13
+#define PITCH     13
+#define RR         1
+
+int main(int argc, char *argv[]){
+  /*FILE *fp;
   IMAGE img_go;
   char flnm[256];
   int zn, n, m, k, l, bn, bm, b0[2], b1[2], bc[2];
@@ -24,11 +30,59 @@ int main(void){
   t1 = time(NULL);
 
   double alpha = 0.0, dmax[NNB], d_min[NNB];
-  
+  */
+  int pitch = PITCH, block_size = BLOCK_SIZE, r = RR;
+  char c;
+  void usage(char *);
+  /*
 #if SRAND_FLG == 1
   srandom(time(NULL));
 #endif
+  */
+  //---------------------------------------------------------------------------
+  // 引数の処理
+  if (argc < 2) usage(argv[0]);
 
+  while((c = getopt(argc, argv, "b:p:r:")) != -1){
+    switch(c) {
+    case 'b':
+      block_size = atoi(optarg);
+      break;
+    case 'p':
+      pitch = atoi(optarg);
+      break;
+    case 'r':
+      r = atoi(optarg);
+      break;
+    default:
+      usage(argv[0]);
+    }
+  }
+  //  argc -= optind - 1;
+  //  argv += (optind - 1);
+  //  if(argc > 2) usage(argv[0]);
+
+  printf("BS = %d\n", block_size);
+  printf("pitch = %d\n", pitch);
+  printf("R = %d\n", r);
+}
+
+
+/*--------------------------------------------------------------------------*/
+void usage(char *com)
+{
+  fprintf(stderr, "\n");
+  fprintf(stderr, "  Usage : %s [-bpr]\n\n", com);
+  fprintf(stderr, "          -b <value> : BlockSize Odd   (int)\n");
+  fprintf(stderr, "          -p <value> : Block Pitch     (int)\n");
+  fprintf(stderr, "          -r <value> : Exclusion Block (int)\n");
+  fprintf(stderr, "\n");
+
+  exit(1);
+}
+
+
+  /*
   //---------------------------------------------------------------------------
   // 領域確保 
   // go[zn][NX][NY]
@@ -364,3 +418,4 @@ int main(void){
   //ピッチ分だけ動かしながら、ブロックの中心の座標とブロックサイズ等をGause-Newton関数へ
   
 }
+*/

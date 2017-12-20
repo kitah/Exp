@@ -12,8 +12,8 @@
 #define NY      240
 #define NZ      3
 #define HANTEI  0.001
-#define CENTER_X 159
-#define CENTER_Y 119
+#define CENTER_X 27
+#define CENTER_Y 27
 #define NDM     0
 
 #define h(x,y) hh[(x)+(L-1)/2][(y)+(L-1)/2]
@@ -35,7 +35,7 @@ int main(void)
   double **p0, **p1, **p2;
   double data[NX * NY];
   double e[NZ], mz[NZ], d0k0[2];
-  double k0, d0, deltad, deltak, dprev, kprev;
+  double k0, d0, deltad, deltak, dprev, kprev, eprev;
   
   void psf(double k, int z, double d, double sgmc, int psf_hs, double **p);
   void dpsfdd(double k, int z, double d, double sgmc, int psf_hs, double **p);
@@ -129,6 +129,7 @@ int main(void)
   d0 = d0k0[0];
   k0 = d0k0[1];
   count = 0;
+  eprev = 0.0;
   
   // do-whileのループで対象のブロックのdepth"d"とレンズ定数"k"を推定する
   do{
@@ -189,7 +190,8 @@ int main(void)
     }
     
     printf("E[%d] = %f\n", count, e[0] + e[1] + e[2]);
-
+    eprev = e[0] + e[1] + e[2];
+    
     a00 = tmp_a00_01 + tmp_a00_12 + tmp_a00_02;
     a01 = tmp_a01_01 + tmp_a01_12 + tmp_a01_02;
     a10 = a01;
